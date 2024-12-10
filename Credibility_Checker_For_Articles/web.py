@@ -1,124 +1,180 @@
 import streamlit as st
-import bcrypt
-import spacy
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-from nltk.tokenize import word_tokenize
+import requests
+from newspaper import Article
+import fitz  # PyMuPDF
 
-# Load the spaCy model
-nlp = spacy.load("en_core_web_sm")
-
-# User credentials (for demonstration purposes, replace with a proper database in production)
-username = "user"
-password = "password"
-hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-
-def login(username_input, password_input):
-    if username_input == username and bcrypt.checkpw(password_input.encode('utf-8'), hashed_password):
-        return True
-    return False
-
-def predict(article):
-    # Perform NER on the article text
-    doc = nlp(article)
-
-    # Extract all entities, concepts, and topics from the text
-    entities = [(entity.text, entity.label_) for entity in doc.ents]
-    concepts = [(token.text, token.pos_) for token in doc if token.pos_ in ["NOUN", "VERB", "ADJ"]]
-    topics = [(token.text, token.dep_) for token in doc if token.dep_ in ["nsubj", "dobj", "iobj"]]
-
-    # Check for red flags in the article's content
-    red_flags = ["!", "?", "...", "Click here to learn more!"]
-    for flag in red_flags:
-        if flag in article:
-            return "Unreliable"
-
-    # Use sentiment analysis to check for sensational language
-    sia = SentimentIntensityAnalyzer()
-    sentiment = sia.polarity_scores(article)
-    if sentiment['compound'] > 0.5:
-        return "Unreliable"
-
-    # Temporarily bypass the domain check to test other parts
-    # try:
-    #     response = requests.get("https://api.example.com/domain")
-    #     response.raise_for_status()
-    #     domain = response.text
-    #     if domain not in ["nytimes.com", "washingtonpost.com", "bbc.com"]:
-    #         return "Unreliable"
-    # except requests.ConnectionError:
-    #     return "Error: Unable to connect to the domain API"
-    # except requests.RequestException as e:
-    #     return f"Error: {e}"
-
-    # If none of the above checks fail, mark the article as "Reliable"
-    return "Reliable"
-
-def fetch_related_info(article):
-    # Generate a mock response based on the user's input
-    query = " ".join(word_tokenize(article)[:10])  # Use the first 10 words for the query
+# Define login credentials
+USERNAME = ["user","anirudh","shiva","vamshi","sreeja"]
+PASSWORD = ["password","anirudh","shiva","vamshi","sreeja"]
+# Streamlit app
+def login_page():
+    st.title('Login')
     
-    # Mock data for reliable information
-    reliable_info = {
-        "weather": [
-            "Reliable Info 1: Recent studies on climate change show the impact on weather patterns.",
-            "Reliable Info 2: Weather manipulation technologies are heavily regulated by international agreements."
-        ],
-        "government": [
-            "Reliable Info 1: Government operations are subject to strict oversight and public accountability.",
-            "Reliable Info 2: Recent policies aimed at transparency and integrity in government practices."
-        ],
-        "conspiracy": [
-            "Reliable Info 1: Information on the effectiveness of whistleblower protection laws.",
-            "Reliable Info 2: How investigative journalism upholds the truth in high-profile cases."
-        ]
-    }
+    username = st.text_input('Username')
+    password = st.text_input('Password', type='password')
     
-    # Determine the relevant reliable information based on the query
-    for key in reliable_info:
-        if key in query.lower():
-            return reliable_info[key]
+    if st.button('Login'):
+        if username in USERNAME and password in PASSWORD:
+            if USERNAME.index(username)==PASSWORD.index(password): 
+                st.session_state['logged_in'] = True
+                st.session_state['show_login'] = False
+        else:
+            st.error('Incorrect username or password')
+
+def main_page():
+    st.title('Credibility Check for Articles, Newspapers, Research Papers, and PDFs')
     
-    # Default reliable information if no relevant information is found
-    return [
-        "Reliable Info: Fact-checking is a crucial part of maintaining the integrity of information."
-    ]
-
-def main():
-    st.title("Credibility Checker")
-
-    if 'logged_in' not in st.session_state:
-        st.session_state.logged_in = False
-
-    if not st.session_state.logged_in:
-        st.subheader("Login")
-        username_input = st.text_input("Username")
-        password_input = st.text_input("Password", type="password")
-        if st.button("Login"):
-            if login(username_input, password_input):
-                st.session_state.logged_in = True
-                st.success("Logged in successfully")
+    input_type = st.radio("Select the input type", ["URL", "Text"])
+    
+    if input_type == "URL":
+        url = st.text_input("Enter the URL of the article, newspaper, research paper, or PDF:")
+        source_type = st.selectbox("Select the type of content", ["Article", "Newspaper", "Research Paper", "PDF"])
+        
+        if st.button('Process URL'):
+            if url:
+                if source_type == "Article":
+                    process_article(url)
+                elif source_type == "Newspaper":
+                    process_newspaper(url)
+                elif source_type == "Research Paper" and url.lower().endswith(".pdf"):
+                    process_research_paper(url)
+                elif source_type == "PDF" and url.lower().endswith(".pdf"):
+                    process_pdf(url)
+                else:
+                    st.warning("Please provide a valid URL and select the appropriate type of content.")
             else:
-                st.error("Invalid credentials")
-    else:
-        st.subheader("Article Credibility Checker")
-        article = st.text_area("Enter the article text")
-        if st.button("Check Credibility"):
-            if article:
-                result = predict(article)
-                st.write(f"The article is: *{result}*")
-                if result == "Unreliable":
-                    st.subheader("Related Reliable Information")
-                    related_info = fetch_related_info(article)
-                    if related_info:
-                        for info in related_info:
-                            st.write(info)
-                    else:
-                        st.write("No related information found.")
+                st.warning("Please enter a URL.")
+    
+    elif input_type == "Text":
+        text = st.text_area("Paste the text of the article here:")
+        
+        if st.button('Process Text'):
+            if text:
+                # Check credibility of the pasted text
+                credibility = check_text_credibility(text)
+                st.subheader("Text Details")
+                st.write("Text:", text)
+                st.write("Credibility:", credibility)
             else:
-                st.error("Please enter the article text")
+                st.warning("Please paste the text of the article.")
 
-        if st.button("Logout"):
-            st.session_state.logged_in = False
+def process_article(url):
+    try:
+        article = Article(url)
+        article.download()
+        article.parse()
+        
+        st.subheader("Article Details")
+        st.write("Title:", article.title)
+        st.write("Authors:", article.authors)
+        st.write("Publish Date:", article.publish_date)
+        if article.top_image:
+            st.image(article.top_image, caption="Top Image", use_column_width=True)
+        st.write("Article Text:", article.text)
+        
+        # Check credibility
+        credibility = check_credibility(article)
+        st.write("Credibility:", credibility)
+    except Exception as e:
+        st.error(f"An error occurred while processing the article: {e}")
 
-if _name_ == "_main_":
-    main()
+def process_newspaper(url):
+    try:
+        process_article(url)  # Newspapers are processed similarly to articles
+    except Exception as e:
+        st.error(f"An error occurred while processing the newspaper: {e}")
+
+def process_research_paper(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Check for HTTP request errors
+        
+        # Open the PDF
+        pdf_file = fitz.open(stream=response.content, filetype="pdf")
+        text = ""
+        
+        # Extract text from each page
+        for page_num in range(len(pdf_file)):
+            page = pdf_file.load_page(page_num)
+            text += page.get_text()
+        
+        if text.strip() == "":
+            st.warning("No text found in the research paper.")
+        else:
+            st.subheader("Research Paper Details")
+            st.write("Text from Research Paper:", text)
+            
+            # Check credibility
+            credibility = check_research_paper_credibility(text)
+            st.write("Credibility:", credibility)
+    except requests.exceptions.RequestException as e:
+        st.error(f"An error occurred while fetching the PDF: {e}")
+    except fitz.FitzError as e:
+        st.error(f"An error occurred while processing the PDF: {e}")
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {e}")
+
+def process_pdf(url):
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Check for HTTP request errors
+        
+        # Open the PDF
+        pdf_file = fitz.open(stream=response.content, filetype="pdf")
+        text = ""
+        
+        # Extract text from each page
+        for page_num in range(len(pdf_file)):
+            page = pdf_file.load_page(page_num)
+            text += page.get_text()
+        
+        if text.strip() == "":
+            st.warning("No text found in the PDF.")
+        else:
+            st.subheader("PDF Document Details")
+            st.write("Text from PDF:", text)
+            
+            # Check credibility
+            credibility = check_pdf_credibility(text)
+            st.write("Credibility:", credibility)
+    except requests.exceptions.RequestException as e:
+        st.error(f"An error occurred while fetching the PDF: {e}")
+    except fitz.FitzError as e:
+        st.error(f"An error occurred while processing the PDF: {e}")
+    except Exception as e:
+        st.error(f"An unexpected error occurred: {e}")
+
+# Credibility checking functions
+def check_credibility(article):
+    # Basic heuristics to determine credibility
+    if article.publish_date and article.authors:
+        return "Reliable"
+    return "Unreliable"
+
+def check_research_paper_credibility(text):
+    # Simple example: check for the presence of keywords or structure
+    if "abstract" in text.lower() and "introduction" in text.lower():
+        return "Reliable"
+    return "Unreliable"
+
+def check_pdf_credibility(text):
+    # Simple example: check for presence of metadata or keywords
+    if "introduction" in text.lower() or "conclusion" in text.lower():
+        return "Reliable"
+    return "Unreliable"
+
+def check_text_credibility(text):
+    # Basic credibility check based on text content
+    if "author" in text.lower() or "source" in text.lower():
+        return "Reliable"
+    return "Unreliable"
+
+# Main logic
+if 'logged_in' not in st.session_state:
+    st.session_state['logged_in'] = False
+    st.session_state['show_login'] = True
+
+if st.session_state['show_login']:
+    login_page()
+else:
+    main_page()

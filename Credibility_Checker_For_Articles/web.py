@@ -4,8 +4,67 @@ from newspaper import Article
 import fitz  # PyMuPDF
 
 # Define login credentials
-USERNAME = ["user","anirudh","shiva","vamshi","sreeja"]
-PASSWORD = ["password","anirudh","shiva","vamshi","sreeja"]
+USERNAME = "user"
+PASSWORD = "password"
+
+# Custom CSS for styling
+st.markdown("""
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+            font-family: Arial, sans-serif;
+        }
+        .reportview-container {
+            background-color: transparent;
+        }
+        .sidebar .sidebar-content {
+            background-color: #333;
+            color: #fff;
+        }
+        .main .block-container {
+            padding: 2rem;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease-in-out;
+        }
+        .main .block-container:hover {
+            background-color: #f9f9f9;
+        }
+        h1, h2, h3 {
+            color: #007bff;
+            font-weight: bold;
+        }
+        .stButton button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            padding: 0.5rem 1rem;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+        }
+        .stButton button:hover {
+            background-color: #0056b3;
+        }
+        .stTextInput input, .stTextArea textarea {
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            padding: 0.5rem;
+            transition: border-color 0.3s ease;
+        }
+        .stTextInput input:focus, .stTextArea textarea:focus {
+            border-color: #007bff;
+            outline: none;
+        }
+        .stSelectbox select {
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            padding: 0.5rem;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # Streamlit app
 def login_page():
     st.title('Login')
@@ -14,10 +73,9 @@ def login_page():
     password = st.text_input('Password', type='password')
     
     if st.button('Login'):
-        if username in USERNAME and password in PASSWORD:
-            if USERNAME.index(username)==PASSWORD.index(password): 
-                st.session_state['logged_in'] = True
-                st.session_state['show_login'] = False
+        if username == USERNAME and password == PASSWORD:
+            st.session_state['logged_in'] = True
+            st.session_state['show_login'] = False
         else:
             st.error('Incorrect username or password')
 
